@@ -202,16 +202,19 @@ class Lock:
         stop_trying_at = None
         if blocking_timeout is not None:
             stop_trying_at = asyncio.get_running_loop().time() + blocking_timeout
-        while True:
-            if await self.do_acquire(token):
+        from quent import Chain
+        def on_acquire_attempt(acquired: bool):
+            if acquired:
                 self.local.token = token
-                return True
+                Chain.return_(True)
             if not blocking:
-                return False
+                Chain.return_(False)
             next_try_at = asyncio.get_running_loop().time() + sleep
             if stop_trying_at is not None and next_try_at > stop_trying_at:
-                return False
-            await asyncio.sleep(sleep)
+                Chain.return_(False)
+        return Chain().while_true(
+            Chain(self.do_acquire, token).then(on_acquire_attempt).then(asyncio.sleep, sleep)
+        ).run()
 
     async def do_acquire(self, token: Union[str, bytes]) -> bool:
         if self.timeout:

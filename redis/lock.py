@@ -203,16 +203,19 @@ class Lock:
         stop_trying_at = None
         if blocking_timeout is not None:
             stop_trying_at = mod_time.monotonic() + blocking_timeout
-        while True:
-            if self.do_acquire(token):
+        from quent import Chain
+        def on_acquire_attempt(acquired: bool):
+            if acquired:
                 self.local.token = token
-                return True
+                Chain.return_(True)
             if not blocking:
-                return False
+                Chain.return_(False)
             next_try_at = mod_time.monotonic() + sleep
             if stop_trying_at is not None and next_try_at > stop_trying_at:
-                return False
-            mod_time.sleep(sleep)
+                Chain.return_(False)
+        return Chain().while_true(
+            Chain(self.do_acquire, token).then(on_acquire_attempt).then(mod_time.sleep, sleep)
+        ).run()
 
     def do_acquire(self, token: str) -> bool:
         if self.timeout:

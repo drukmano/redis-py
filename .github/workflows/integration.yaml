@@ -25,30 +25,30 @@ permissions:
 
 jobs:
 
-   #dependency-audit:
-   #  name: Dependency audit
-   #  runs-on: ubuntu-latest
-   #  steps:
-   #    - uses: actions/checkout@v4
-   #    - uses: pypa/gh-action-pip-audit@v1.0.8
-   #      with:
-   #        inputs: requirements.txt dev_requirements.txt
-   #        ignore-vulns: |
-   #          GHSA-w596-4wvx-j9j6  # subversion related git pull, dependency for pytest. There is no impact here.
+   dependency-audit:
+     name: Dependency audit
+     runs-on: ubuntu-latest
+     steps:
+       - uses: actions/checkout@v4
+       - uses: pypa/gh-action-pip-audit@v1.0.8
+         with:
+           inputs: requirements.txt dev_requirements.txt
+           ignore-vulns: |
+             GHSA-w596-4wvx-j9j6  # subversion related git pull, dependency for pytest. There is no impact here.
 
-   #lint:
-   #  name: Code linters
-   #  runs-on: ubuntu-latest
-   #  steps:
-   #    - uses: actions/checkout@v4
-   #    - uses: actions/setup-python@v4
-   #      with:
-   #        python-version: 3.9
-   #        cache: 'pip'
-   #    - name: run code linters
-   #      run: |
-   #        pip install -r dev_requirements.txt
-   #        invoke linters
+   lint:
+     name: Code linters
+     runs-on: ubuntu-latest
+     steps:
+       - uses: actions/checkout@v4
+       - uses: actions/setup-python@v4
+         with:
+           python-version: 3.9
+           cache: 'pip'
+       - name: run code linters
+         run: |
+           pip install -r dev_requirements.txt
+           invoke linters
 
    run-tests:
      runs-on: ubuntu-latest
@@ -58,7 +58,7 @@ jobs:
        fail-fast: false
        matrix:
          python-version: ['3.11']
-         test-type: ['standalone']
+         test-type: ['standalone', 'cluster']
          connection-type: ['plain']
      env:
        ACTIONS_ALLOW_UNSECURE_COMMANDS: true
@@ -81,17 +81,17 @@ jobs:
            sleep 10 # time to settle
            invoke ${{matrix.test-type}}-tests
 
-       #- uses: actions/upload-artifact@v3
-       #  if: success() || failure()
-       #  with:
-       #    name: pytest-results-${{matrix.test-type}}-${{matrix.connection-type}}-${{matrix.python-version}}
-       #    path: '${{matrix.test-type}}*results.xml'
+       - uses: actions/upload-artifact@v3
+         if: success() || failure()
+         with:
+           name: pytest-results-${{matrix.test-type}}-${{matrix.connection-type}}-${{matrix.python-version}}
+           path: '${{matrix.test-type}}*results.xml'
 
-       #- name: Upload codecov coverage
-       #  uses: codecov/codecov-action@v3
-       #  if: ${{matrix.python-version == '3.11'}}
-       #  with:
-       #    fail_ci_if_error: false
+       - name: Upload codecov coverage
+         uses: codecov/codecov-action@v3
+         if: ${{matrix.python-version == '3.11'}}
+         with:
+           fail_ci_if_error: false
 
        - name: View Test Results
          uses: dorny/test-reporter@v1
@@ -112,7 +112,7 @@ jobs:
       fail-fast: false
       matrix:
         python-version: ['3.11']
-        test-type: ['standalone']
+        test-type: ['standalone', 'cluster']
         connection-type: ['plain']
         protocol: ['3']
     env:
