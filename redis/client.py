@@ -85,7 +85,35 @@ class AbstractRedis:
     pass
 
 
-class Redis(RedisModuleCommands, CoreCommands, SentinelCommands):
+from quent import Chain, ResultOrAwaitable
+class BaseRedis:
+    response_callbacks: CaseInsensitiveDict
+
+    def parse_response(
+      self, connection, command_name: Union[str, bytes], **options
+    ) -> ResultOrAwaitable:
+        """Parses a response from the Redis server"""
+        never_decode = NEVER_DECODE in options
+        chain = Chain(connection.read_response, disable_decoding=never_decode)
+        if never_decode:
+            chain.do(options.pop, NEVER_DECODE)
+
+        @lambda fn: chain.except_(fn, exceptions=ResponseError, return_=True)
+        def on_except():
+            if EMPTY_RESPONSE in options:
+                return options[EMPTY_RESPONSE]
+            raise
+
+        chain = Chain(chain)
+        if EMPTY_RESPONSE in options:
+            chain.do(options.pop, EMPTY_RESPONSE)
+
+        if command_name in self.response_callbacks:
+            chain.then(lambda resp: self.response_callbacks[command_name](resp, **options))
+        return chain.run()
+
+
+class Redis(BaseRedis, RedisModuleCommands, CoreCommands, SentinelCommands):
     """
     Implementation of the Redis protocol.
 
@@ -605,26 +633,6 @@ class Redis(RedisModuleCommands, CoreCommands, SentinelCommands):
             finally:
                 if not self.connection:
                     pool.release(conn)
-
-    def parse_response(self, connection, command_name, **options):
-        """Parses a response from the Redis server"""
-        try:
-            if NEVER_DECODE in options:
-                response = connection.read_response(disable_decoding=True)
-                options.pop(NEVER_DECODE)
-            else:
-                response = connection.read_response()
-        except ResponseError:
-            if EMPTY_RESPONSE in options:
-                return options[EMPTY_RESPONSE]
-            raise
-
-        if EMPTY_RESPONSE in options:
-            options.pop(EMPTY_RESPONSE)
-
-        if command_name in self.response_callbacks:
-            return self.response_callbacks[command_name](response, **options)
-        return response
 
 
 StrictRedis = Redis
