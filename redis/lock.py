@@ -223,15 +223,15 @@ class Lock:
             timeout = int(self.timeout * 1000)
         else:
             timeout = None
-        if self.redis.set(self.name, token, nx=True, px=timeout):
-            return True
-        return False
+        from quent import Chain
+        return Chain(self.redis.set, self.name, token, nx=True, px=timeout).then(bool).run()
 
     def locked(self) -> bool:
         """
         Returns True if this key is locked by any process, otherwise False.
         """
-        return self.redis.get(self.name) is not None
+        from quent import Chain
+        return Chain(self.redis.get, self.name).is_not(None).run()
 
     def owned(self) -> bool:
         """

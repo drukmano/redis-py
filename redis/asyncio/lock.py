@@ -164,7 +164,7 @@ class Lock:
     async def __aexit__(self, exc_type, exc_value, traceback):
         await self.release()
 
-    async def acquire(
+    def acquire(
         self,
         blocking: Optional[bool] = None,
         blocking_timeout: Optional[float] = None,
@@ -216,21 +216,21 @@ class Lock:
             Chain(self.do_acquire, token).then(on_acquire_attempt).then(asyncio.sleep, sleep)
         ).run()
 
-    async def do_acquire(self, token: Union[str, bytes]) -> bool:
+    def do_acquire(self, token: Union[str, bytes]) -> bool:
         if self.timeout:
             # convert to milliseconds
             timeout = int(self.timeout * 1000)
         else:
             timeout = None
-        if await self.redis.set(self.name, token, nx=True, px=timeout):
-            return True
-        return False
+        from quent import Chain
+        return Chain(self.redis.set, self.name, token, nx=True, px=timeout).then(bool).run()
 
-    async def locked(self) -> bool:
+    def locked(self) -> bool:
         """
         Returns True if this key is locked by any process, otherwise False.
         """
-        return await self.redis.get(self.name) is not None
+        from quent import Chain
+        return Chain(self.redis.get, self.name).is_not(None).run()
 
     async def owned(self) -> bool:
         """
@@ -257,6 +257,7 @@ class Lock:
         return self.do_release(expected_token)
 
     async def do_release(self, expected_token: bytes) -> None:
+        from quent import Chain
         if not bool(
             await self.lua_release(
                 keys=[self.name], args=[expected_token], client=self.redis
