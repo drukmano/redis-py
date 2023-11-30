@@ -98,20 +98,18 @@ class BaseRedis:
         if never_decode:
             chain.do(options.pop, NEVER_DECODE)
 
-        @lambda fn: chain.except_(fn, exceptions=ResponseError, return_=True)
         def on_except():
             if EMPTY_RESPONSE in options:
                 return options[EMPTY_RESPONSE]
             raise
+        chain.except_(on_except, exceptions=ResponseError, return_=True)
 
-        chain = Chain(chain)
         if EMPTY_RESPONSE in options:
             chain.do(options.pop, EMPTY_RESPONSE)
-
         if command_name in self.response_callbacks:
             chain.then(lambda resp: self.response_callbacks[command_name](resp, **options))
-        return chain.run()
 
+        return chain.run()
 
 class Redis(BaseRedis, RedisModuleCommands, CoreCommands, SentinelCommands):
     """
