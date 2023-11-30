@@ -102,7 +102,7 @@ class BaseRedis:
             if EMPTY_RESPONSE in options:
                 return options[EMPTY_RESPONSE]
             raise
-        chain.except_(on_except, exceptions=ResponseError, return_=True)
+        chain.except_(on_except, ..., exceptions=ResponseError, raise_=False)
 
         if EMPTY_RESPONSE in options:
             chain.do(options.pop, EMPTY_RESPONSE)
