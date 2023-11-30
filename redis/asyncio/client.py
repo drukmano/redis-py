@@ -94,7 +94,7 @@ ResponseCallbackT = Union[ResponseCallbackProtocol, AsyncResponseCallbackProtoco
 
 
 class Redis(
-    AbstractRedis, AsyncRedisModuleCommands, AsyncCoreCommands, AsyncSentinelCommands
+    BaseRedis, AbstractRedis, AsyncRedisModuleCommands, AsyncCoreCommands, AsyncSentinelCommands
 ):
     """
     Implementation of the Redis protocol.
@@ -618,28 +618,6 @@ class Redis(
             if not self.connection:
                 await pool.release(conn)
 
-    async def parse_response(
-      self, connection: Connection, command_name: Union[str, bytes], **options
-    ):
-        """Parses a response from the Redis server"""
-        try:
-            if NEVER_DECODE in options:
-                response = await connection.read_response(disable_decoding=True)
-                options.pop(NEVER_DECODE)
-            else:
-                response = await connection.read_response()
-        except ResponseError:
-            if EMPTY_RESPONSE in options:
-                return options[EMPTY_RESPONSE]
-            raise
-        if EMPTY_RESPONSE in options:
-            options.pop(EMPTY_RESPONSE)
-        if command_name in self.response_callbacks:
-            # Mypy bug: https://github.com/python/mypy/issues/10977
-            command_name = cast(str, command_name)
-            retval = self.response_callbacks[command_name](response, **options)
-            return await retval if inspect.isawaitable(retval) else retval
-        return response
 
 StrictRedis = Redis
 
