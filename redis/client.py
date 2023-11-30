@@ -1,4 +1,5 @@
 import copy
+import inspect
 import re
 import threading
 import time
@@ -107,7 +108,10 @@ class BaseRedis:
         if EMPTY_RESPONSE in options:
             chain.do(options.pop, EMPTY_RESPONSE)
         if command_name in self.response_callbacks:
+            async def prox(v):
+                return await v
             chain.then(lambda resp: self.response_callbacks[command_name](resp, **options))
+            chain.condition(inspect.isawaitable).if_(prox)
 
         return chain.run()
 
